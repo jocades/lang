@@ -8,7 +8,7 @@ Size of character array (string) >= n of chars in string + 1
 
 void print(char *c) { // same as char c[] but when an array is passed as an arg
                       // to a function, it is passed by reference
-  while (*c) {
+  while (*c) {        // it will stop when it reaches the null character
     printf("%c", *c);
     c++;
   }

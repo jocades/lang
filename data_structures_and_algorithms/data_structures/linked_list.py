@@ -104,7 +104,6 @@ print('len: ', len(ll))
 for node in ll:
     print(node)
 
-
 # __getitem__
 first = ll[0]
 last = ll[len(ll) - 1]
