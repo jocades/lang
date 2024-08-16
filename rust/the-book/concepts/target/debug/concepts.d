@@ -1,1 +1,0 @@
-/Users/j0rdi/prog/lang/rust/the-book/concepts/target/debug/concepts: /Users/j0rdi/prog/lang/rust/the-book/concepts/src/functions.rs /Users/j0rdi/prog/lang/rust/the-book/concepts/src/main.rs /Users/j0rdi/prog/lang/rust/the-book/concepts/src/ownership.rs

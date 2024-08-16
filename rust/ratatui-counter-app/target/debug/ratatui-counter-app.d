@@ -1,1 +1,0 @@
-/Users/j0rdi/prog/lang/rust/ratatui-counter-app/target/debug/ratatui-counter-app: /Users/j0rdi/prog/lang/rust/ratatui-counter-app/src/main.rs /Users/j0rdi/prog/lang/rust/ratatui-counter-app/src/tui.rs
