@@ -33,7 +33,7 @@ impl RequestBuilder {
     }
 
     pub fn body(&mut self, body: impl Into<String>) -> &mut Self {
-        self.method = Some(body.into());
+        self.body = Some(body.into());
         self
     }
 
