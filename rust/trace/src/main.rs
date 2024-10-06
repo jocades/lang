@@ -1,7 +1,8 @@
 #![allow(unused)]
 use tracing::{event, info, info_span, span, trace, trace_span, warn, Level};
 
-fn main() {
+#[tokio::main]
+async fn main() {
     tracing_subscriber::fmt::init();
 
     let span = trace_span!("main");
@@ -17,21 +18,25 @@ fn main() {
 
     let mut handles = Vec::new();
     for file in args {
-        let handle = std::thread::spawn(move || {
-            let span = info_span!("file", fname = %file);
-            let _guard = span.enter();
-            info!("opening the file");
-            info!("reading file contents");
-            info!(bytes = 34, "parsing");
-            // ..
-            info!(ok = true, "done with file");
-        });
+        let handle = tokio::spawn(async move { on_thread(file).await });
         handles.push(handle);
     }
 
     for handle in handles {
-        handle.join().unwrap();
+        handle.await.unwrap();
     }
+}
+
+/// Create an instrument which will create a span for this function.
+#[tracing::instrument]
+async fn on_thread(file: String) {
+    // let span = info_span!("file", fname = %file);
+    // let _guard = span.enter();
+    info!("opening the file");
+    info!("reading file contents");
+    info!(bytes = 34, "parsing");
+    // ..
+    info!(ok = true, "done with file");
 }
 
 #[tracing::instrument]
