@@ -4,8 +4,8 @@
 #include <stdlib.h>
 
 typedef struct {
-  int len;
   char* val;
+  int len;
 } String;
 
 String* string() {

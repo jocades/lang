@@ -1,0 +1,45 @@
+{
+  "nodes": {
+    "external": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1727218886,
+        "narHash": "sha256-LtdktKbUIbzJL0Lj3DQTFUOgokZw8/WxJGFBEXPVsZY=",
+        "path": "/Users/j0rdi/prog/lang/nix/own-modules/external-flake",
+        "type": "path"
+      },
+      "original": {
+        "path": "/Users/j0rdi/prog/lang/nix/own-modules/external-flake",
+        "type": "path"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1727089097,
+        "narHash": "sha256-ZMHMThPsthhUREwDebXw7GX45bJnBCVbfnH1g5iuSPc=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "568bfef547c14ca438c56a0bece08b8bb2b71a9c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "external": "external",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
