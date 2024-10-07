@@ -1,20 +1,21 @@
 #![allow(unused)]
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Condvar, Mutex},
-};
+use std::collections::VecDeque;
+use std::sync::{Arc, Condvar, Mutex};
 
+#[derive(Debug)]
 struct Shared<T> {
     inner: Mutex<Inner<T>>,
     available: Condvar,
 }
 
+#[derive(Debug)]
 struct Inner<T> {
     queue: VecDeque<T>,
     senders: usize,
 }
 
+#[derive(Debug)]
 pub struct Sender<T> {
     shared: Arc<Shared<T>>,
 }
@@ -54,16 +55,25 @@ impl<T> Sender<T> {
     }
 }
 
+#[derive(Debug)]
 pub struct Receiver<T> {
     shared: Arc<Shared<T>>,
+    buffer: VecDeque<T>,
 }
 
 impl<T> Receiver<T> {
     pub fn recv(&mut self) -> Option<T> {
+        if let Some(data) = self.buffer.pop_front() {
+            return Some(data);
+        }
+
         let mut inner = self.shared.inner.lock().unwrap();
         loop {
             match inner.queue.pop_front() {
-                Some(data) => return Some(data),
+                Some(data) => {
+                    std::mem::swap(&mut self.buffer, &mut inner.queue);
+                    return Some(data);
+                }
                 None if inner.senders == 0 => return None,
                 None => {
                     inner = self.shared.available.wait(inner).unwrap();
@@ -84,7 +94,7 @@ impl<T> Receiver<T> {
 pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
     let shared = Arc::new(Shared {
         inner: Mutex::new(Inner {
-            queue: VecDeque::default(),
+            queue: VecDeque::new(),
             senders: 1,
         }),
         available: Condvar::new(),
@@ -96,6 +106,7 @@ pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
         },
         Receiver {
             shared: Arc::clone(&shared),
+            buffer: VecDeque::new(),
         },
     )
 }
@@ -125,5 +136,21 @@ mod tests {
         tx.send("foo"); // what happens when we try to send but there are no receivers is more of a
                         // design choice, in some cases we might want to error and take some action
                         // but in this case we just send into the void
+    }
+
+    #[test]
+    fn buffered() {
+        let (mut tx, mut rx) = channel();
+        tx.send("foo");
+        tx.send("bar");
+        tx.send("baz");
+        dbg!(&tx);
+        dbg!(&rx);
+        assert_eq!(rx.recv(), Some("foo"));
+        dbg!(&tx);
+        dbg!(&rx);
+        assert_eq!(rx.recv(), Some("bar"));
+        assert_eq!(rx.recv(), Some("baz"));
+        // let _ = rx.recv(); // This would block waiting for messages
     }
 }
