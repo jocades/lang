@@ -13,37 +13,94 @@ fn simple(input: &[u8]) -> Option<usize> {
 }
 
 fn with_vec(input: &[u8]) -> Option<usize> {
-    input
-        .windows(14)
-        .position(|w| {
-            let mut buf = Vec::with_capacity(14);
-            for c in w {
-                if buf.contains(c) {
-                    return false;
-                }
-                buf.push(*c);
+    input.windows(14).position(|w| {
+        let mut buf = Vec::with_capacity(14);
+        for c in w {
+            if buf.contains(c) {
+                return false;
             }
-            true
-        })
-        .map(|n| n + 14)
+            buf.push(*c);
+        }
+        true
+    })
 }
 
 fn with_array(input: &[u8]) -> Option<usize> {
-    input
-        .windows(14)
-        .position(|w| {
-            let mut buf = [0u8; 14];
-            for (idx, c) in w.iter().enumerate() {
-                for i in 0..idx {
-                    if buf[i] == *c {
-                        return false;
-                    }
+    input.windows(14).position(|w| {
+        let mut buf = [0u8; 14];
+        for (idx, c) in w.iter().enumerate() {
+            for i in 0..idx {
+                if buf[i] == *c {
+                    return false;
                 }
-                buf[idx] = *c;
             }
-            true
-        })
-        .map(|n| n + 14)
+            buf[idx] = *c;
+        }
+        true
+    })
+}
+
+fn bitwise(input: &[u8]) -> Option<usize> {
+    input.windows(14).position(|w| {
+        let mut state = 0u32;
+        for c in w {
+            let prev = state;
+            state |= 1 << (c % 32);
+            if state == prev {
+                return false;
+            }
+        }
+        true
+    })
+}
+
+fn xor(input: &[u8]) -> Option<usize> {
+    let mut filter = 0u32;
+    input
+        .iter()
+        .take(14 - 1)
+        .for_each(|c| filter ^= 1 << (c % 32));
+    println!("+ {filter:b}");
+
+    input.windows(14).position(|w| {
+        let first = w[0];
+        let last = w[w.len() - 1];
+        println!("* {filter:b}");
+        filter ^= 1 << (last % 32);
+        println!("- {filter:b}");
+        let res = filter.count_ones() == 14 as u32;
+        filter ^= 1 << (first % 32);
+        println!("- {filter:b} {res}");
+        res
+    })
+}
+
+pub fn reverse(input: &[u8]) -> Option<usize> {
+    let mut idx = 0;
+    while let Some(slice) = input.get(idx..idx + 14) {
+        let mut state = 0u32;
+
+        if let Some(pos) = slice.iter().rposition(|c| {
+            let bit_idx = c % 32;
+            println!("- {state:0>27b}");
+            let ret = state & (1 << bit_idx) != 0;
+            state |= 1 << bit_idx;
+            println!(
+                "* {state:0>27b} char={} bit={} count={}",
+                *c as char,
+                bit_idx,
+                state.count_ones()
+            );
+            ret
+        }) {
+            idx += pos + 1;
+            println!("> pos={pos}");
+        } else if state.count_ones() == 14 as u32 {
+            return Some(idx);
+        }
+    }
+
+    None
 }
 
 fn main() {
@@ -62,8 +119,11 @@ fn main() {
     dbg!(simple(TEST.as_bytes()));
     dbg!(with_vec(TEST.as_bytes()));
     dbg!(with_array(TEST.as_bytes()));
-    // We can map each char from 0..25 to a single 32 bit number by assigning each bit to 0 or 1;
-    // u32 -> [0; 32]
+    dbg!(bitwise(TEST.as_bytes()));
+    dbg!(xor(TEST.as_bytes()));
+    dbg!(reverse(TEST.as_bytes()));
+
+    let mut state = 0u32;
 }
 
 fn bin_to_dec(bin: &str) -> u32 {
