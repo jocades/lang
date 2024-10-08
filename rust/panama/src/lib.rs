@@ -128,6 +128,7 @@ pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{thread, time::Duration};
 
     #[test]
     fn ping_pong() {
@@ -166,5 +167,52 @@ mod tests {
         assert_eq!(rx.recv(), Some("bar"));
         assert_eq!(rx.recv(), Some("baz"));
         // let _ = rx.recv(); // This would block waiting for messages
+    }
+
+    #[test]
+    fn threads() {
+        let (mut tx, mut rx) = channel();
+
+        let sender = thread::spawn(move || {
+            tx.send("Hello, thread");
+        });
+
+        let receiver = thread::spawn(move || {
+            let value = rx.recv().expect("Unable to receive from channel");
+            assert_eq!(dbg!(value), "Hello, thread");
+        });
+
+        sender.join().expect("The sender thread has panicked");
+        receiver.join().expect("The receiver thread has panicked");
+    }
+
+    #[test]
+    fn ref_count() {
+        let (tx, mut rx) = channel();
+        println!("\nrefs={}", Arc::strong_count(&tx.shared));
+
+        let mut handles = Vec::new();
+        for i in 0..10 {
+            let mut tx = tx.clone();
+            handles.push(thread::spawn(move || {
+                tx.send(i);
+                println!("refs={} -> {i}", Arc::strong_count(&tx.shared));
+            }));
+        }
+
+        thread::sleep(Duration::from_millis(100));
+        println!("refs={}", Arc::strong_count(&tx.shared));
+
+        for _ in 0..10 {
+            let v = rx.recv().unwrap();
+            assert!(0 <= v && v < 10);
+        }
+
+        // Since we wait to receive exactly 10 messages it kind of acts as a synchronization mechanism
+        // So no need to 'wait' for the threads with the handle since recv() is already blocking.
+        //
+        // for handle in handles {
+        //     handle.join().unwrap();
+        // }
     }
 }
