@@ -4,6 +4,7 @@ mod cell;
 mod raw;
 mod rc;
 mod refcell;
+mod vec;
 
 use raw::MyReader;
 
