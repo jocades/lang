@@ -5,39 +5,31 @@ use std::ptr::NonNull;
 use std::{mem, ptr};
 
 #[derive(Debug)]
-pub struct Vec<T> {
+struct RawVec<T> {
     ptr: NonNull<T>,
-    len: usize,
     cap: usize,
 }
 
-// By implementing these traits we get the same result as Unique<T> but using NonNull<T>
-unsafe impl<T: Send> Send for Vec<T> {}
-unsafe impl<T: Sync> Sync for Vec<T> {}
+unsafe impl<T: Send> Send for RawVec<T> {}
+unsafe impl<T: Sync> Sync for RawVec<T> {}
 
-impl<T> Vec<T> {
+impl<T> RawVec<T> {
     pub fn new() -> Self {
-        assert!(mem::size_of::<T>() != 0, "we're not ready to handle ZSTs");
-        Vec {
+        assert!(mem::size_of::<T>() != 0, "TODO: implement ZST support");
+        RawVec {
             ptr: NonNull::dangling(),
-            len: 0,
             cap: 0,
         }
     }
 
     fn grow(&mut self) {
-        let (new_cap, new_layout) = if self.cap == 0 {
-            (1, Layout::array::<T>(1).unwrap())
-        } else {
-            // This can't overflow since self.cap <= isize::MAX
-            let new_cap = 2 * self.cap;
+        // This can't overflow because we ensure self.cap <= isize::MAX.
+        let new_cap = if self.cap == 0 { 1 } else { 2 * self.cap };
 
-            // `Layout::array` checks that the number of bytes is <= usize::MAX,
-            // but this is redundant since old_layout.size() <= isize::MAX,
-            // so the `unwrap` should never fail.
-            let new_layout = Layout::array::<T>(new_cap).unwrap();
-            (new_cap, new_layout)
-        };
+        // Layout::array checks that the number of bytes is <= usize::MAX,
+        // but this is redundant since old_layout.size() <= isize::MAX,
+        // so the `unwrap` should never fail.
+        let new_layout = Layout::array::<T>(new_cap).unwrap();
 
         // Ensure that the new allocation doesn't exceed `isize::MAX` bytes.
         assert!(
@@ -60,13 +52,51 @@ impl<T> Vec<T> {
         };
         self.cap = new_cap;
     }
+}
+
+impl<T> Drop for RawVec<T> {
+    fn drop(&mut self) {
+        if self.cap != 0 {
+            let layout = Layout::array::<T>(self.cap).unwrap();
+            unsafe {
+                alloc::dealloc(self.ptr.as_ptr() as *mut u8, layout);
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Vec<T> {
+    buf: RawVec<T>,
+    len: usize,
+}
+
+impl<T> Vec<T> {
+    fn ptr(&self) -> *mut T {
+        self.buf.ptr.as_ptr()
+    }
+
+    fn cap(&self) -> usize {
+        self.buf.cap
+    }
+
+    fn grow(&mut self) {
+        self.buf.grow();
+    }
+
+    pub fn new() -> Self {
+        Vec {
+            buf: RawVec::new(),
+            len: 0,
+        }
+    }
 
     pub fn push(&mut self, item: T) {
-        if self.len == self.cap {
+        if self.len == self.cap() {
             self.grow();
         }
 
-        unsafe { ptr::write(self.ptr.as_ptr().add(self.len), item) };
+        unsafe { ptr::write(self.ptr().add(self.len), item) };
 
         // Can't fail, we will OOM first.
         self.len += 1;
@@ -77,7 +107,7 @@ impl<T> Vec<T> {
             None
         } else {
             self.len -= 1;
-            unsafe { Some(ptr::read(self.ptr.as_ptr().add(self.len))) }
+            unsafe { Some(ptr::read(self.ptr().add(self.len))) }
         }
     }
 
@@ -85,18 +115,18 @@ impl<T> Vec<T> {
         // Note: `<=` because it is valid to insert after everything
         // which would be equivalent to push.
         assert!(index <= self.len, "index out of bound");
-        if self.len == self.cap {
+        if self.len == self.cap() {
             self.grow();
         }
 
         unsafe {
             // ptr::copy(src, dest, len): "copy from source to dest len elements"
             ptr::copy(
-                self.ptr.as_ptr().add(index),
-                self.ptr.as_ptr().add(index + 1),
+                self.ptr().add(index),
+                self.ptr().add(index + 1),
                 self.len - index,
             );
-            ptr::write(self.ptr.as_ptr().add(index), item)
+            ptr::write(self.ptr().add(index), item)
         }
 
         self.len += 1;
@@ -107,10 +137,10 @@ impl<T> Vec<T> {
         assert!(index < self.len, "index out of bounds");
         unsafe {
             self.len -= 1;
-            let result = ptr::read(self.ptr.as_ptr().add(index));
+            let result = ptr::read(self.ptr().add(index));
             ptr::copy(
-                self.ptr.as_ptr().add(index + 1),
-                self.ptr.as_ptr().add(index),
+                self.ptr().add(index + 1),
+                self.ptr().add(index),
                 self.len - index,
             );
             result
@@ -120,26 +150,21 @@ impl<T> Vec<T> {
 
 impl<T> Drop for Vec<T> {
     fn drop(&mut self) {
-        if self.cap != 0 {
-            while let Some(_) = self.pop() {}
-            let layout = Layout::array::<T>(self.cap).unwrap();
-            unsafe {
-                alloc::dealloc(self.ptr.as_ptr() as *mut u8, layout);
-            }
-        }
+        while let Some(_) = self.pop() {}
+        // deallocation is handled by `RawVec`
     }
 }
 
 impl<T> Deref for Vec<T> {
     type Target = [T];
     fn deref(&self) -> &Self::Target {
-        unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
+        unsafe { std::slice::from_raw_parts(self.ptr(), self.len) }
     }
 }
 
 impl<T> DerefMut for Vec<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { std::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
+        unsafe { std::slice::from_raw_parts_mut(self.ptr(), self.len) }
     }
 }
 
@@ -149,8 +174,7 @@ impl<T> DerefMut for Vec<T> {
 // In order to enable this, IntoIter needs to take control of Vec's allocation.
 #[derive(Debug)]
 pub struct IntoIter<T> {
-    buf: NonNull<T>,
-    cap: usize,
+    _buf: RawVec<T>, // we don't actually care about this. Just need it to live.
     start: *const T,
     end: *const T,
 }
@@ -159,24 +183,21 @@ impl<T> IntoIterator for Vec<T> {
     type Item = T;
     type IntoIter = IntoIter<T>;
     fn into_iter(self) -> Self::IntoIter {
-        // Make sure not to drop Vec since that would free the buffer
-        let vec = ManuallyDrop::new(self);
-
-        // Cannot destructure Vec since it is `Drop`
-        let ptr = vec.ptr;
-        let cap = vec.cap;
-        let len = vec.len;
+        // need to use ptr::read to unsafely move the buf out since it's
+        // not Copy, and Vec implements Drop (so we can't destructure it).
+        let buf = unsafe { ptr::read(&self.buf) };
+        let len = self.len;
+        mem::forget(self);
 
         IntoIter {
-            buf: ptr,
-            cap,
-            start: ptr.as_ptr(),
-            end: if cap == 0 {
-                // cannot offset off this pointer, it is not allocated!
-                ptr.as_ptr()
+            start: buf.ptr.as_ptr(),
+            end: if buf.cap == 0 {
+                // cannot offset off a pointer unless it is part of an allocation
+                buf.ptr.as_ptr()
             } else {
-                unsafe { ptr.as_ptr().add(len) }
+                unsafe { buf.ptr.as_ptr().add(len) }
             },
+            _buf: buf,
         }
     }
 }
@@ -219,14 +240,9 @@ impl<T> DoubleEndedIterator for IntoIter<T> {
 // However it also wants to implement Drop to drop any elements it contains that weren't yielded.
 impl<T> Drop for IntoIter<T> {
     fn drop(&mut self) {
-        if self.cap != 0 {
-            // drop any remaining elements
-            for _ in &mut *self {}
-            let layout = Layout::array::<T>(self.cap).unwrap();
-            unsafe {
-                alloc::dealloc(self.buf.as_ptr() as *mut u8, layout);
-            }
-        }
+        // only need to ensure all out elements are read;
+        // buffer will clean itself up afterwards.
+        for _ in &mut *self {}
     }
 }
 

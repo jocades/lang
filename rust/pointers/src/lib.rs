@@ -5,6 +5,7 @@ mod raw;
 mod rc;
 mod refcell;
 mod vec;
+mod vec_logic_compression;
 
 use raw::MyReader;
 
