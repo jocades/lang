@@ -34,20 +34,10 @@ impl Read for MyReader<'_> {
 mod tests {
     use super::*;
 
-    fn first_word(s: &str) -> &str {
-        &s[..]
-    }
-
-    fn what<T: AsRef<str>>(v: T) {
-        first_word(v.as_ref());
-    }
-
     #[test]
     fn my_reader() {
         let mut v = String::from("hello");
-        let first = first_word(&v);
         v.clear();
-        println!("{first}");
 
         let mut reader = MyReader::new([1, 2, 3, 4, 5].as_ref());
 

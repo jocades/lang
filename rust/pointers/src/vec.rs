@@ -1,7 +1,9 @@
 use std::alloc::{self, Layout};
+use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 use std::{mem, ptr};
 
+#[derive(Debug)]
 pub struct Vec<T> {
     ptr: NonNull<T>,
     len: usize,
@@ -31,7 +33,7 @@ impl<T> Vec<T> {
 
             // `Layout::array` checks that the number of bytes is <= usize::MAX,
             // but this is redundant since old_layout.size() <= isize::MAX,
-            // to the `unwrap` should never fail.
+            // so the `unwrap` should never fail.
             let new_layout = Layout::array::<T>(new_cap).unwrap();
             (new_cap, new_layout)
         };
@@ -57,6 +59,91 @@ impl<T> Vec<T> {
         };
         self.cap = new_cap;
     }
+
+    pub fn push(&mut self, item: T) {
+        if self.len == self.cap {
+            self.grow();
+        }
+
+        unsafe { ptr::write(self.ptr.as_ptr().add(self.len), item) };
+
+        // Can't fail, we will OOM first.
+        self.len += 1;
+    }
+
+    pub fn pop(&mut self) -> Option<T> {
+        if self.len == 0 {
+            None
+        } else {
+            self.len -= 1;
+            unsafe { Some(ptr::read(self.ptr.as_ptr().add(self.len))) }
+        }
+    }
+
+    pub fn insert(&mut self, index: usize, item: T) {
+        // Note: `<=` because it is valid to insert after everything
+        // which would be equivalent to push.
+        assert!(index <= self.len, "index out of bound");
+        if self.len == self.cap {
+            self.grow();
+        }
+
+        unsafe {
+            // ptr::copy(src, dest, len): "copy from source to dest len elements"
+            ptr::copy(
+                self.ptr.as_ptr().add(index),
+                self.ptr.as_ptr().add(index + 1),
+                self.len - index,
+            );
+            ptr::write(self.ptr.as_ptr().add(index), item)
+        }
+
+        self.len += 1;
+    }
+
+    pub fn remove(&mut self, index: usize) -> T {
+        // Note: `<` because it is _not_ valid to remove after everything.
+        assert!(index < self.len, "index out of bounds");
+        unsafe {
+            self.len -= 1;
+            let result = ptr::read(self.ptr.as_ptr().add(index));
+            ptr::copy(
+                self.ptr.as_ptr().add(index + 1),
+                self.ptr.as_ptr().add(index),
+                self.len - index,
+            );
+            result
+        }
+    }
+}
+
+impl<T> Drop for Vec<T> {
+    fn drop(&mut self) {
+        if self.cap != 0 {
+            while let Some(_) = self.pop() {}
+            let layout = Layout::array::<T>(self.cap).unwrap();
+            unsafe {
+                alloc::dealloc(self.ptr.as_ptr() as *mut u8, layout);
+            }
+        }
+    }
+}
+
+impl<T> Deref for Vec<T> {
+    type Target = [T];
+    fn deref(&self) -> &Self::Target {
+        unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
+    }
+}
+
+impl<T> DerefMut for Vec<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { std::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
+    }
+}
+
+fn coerce(v: &[u8]) -> usize {
+    v.len()
 }
 
 #[cfg(test)]
@@ -64,7 +151,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_vec_new() {
-        let v: Vec<u8> = Vec::new();
+    fn test_vec() {
+        let mut v: Vec<u8> = Vec::new();
+        for i in 0..4 {
+            v.push(i)
+        }
+        println!("Grow exact: {v:?}");
+        v.push(5); // len == cap -> cap = 2 * cap
+        println!("Grow oversize: {v:?}");
+
+        // The `.` derefs automagically so we can use all the methods from a slice `&[T]`;
+        v.iter_mut().for_each(|n| *n = n.pow(2));
+
+        // The power of deref:
+        let len = coerce(&v);
     }
 }
