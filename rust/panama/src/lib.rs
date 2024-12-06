@@ -34,6 +34,12 @@ pub struct Sender<T> {
     shared: Arc<Shared<T>>,
 }
 
+#[derive(Debug)]
+pub struct Receiver<T> {
+    shared: Arc<Shared<T>>,
+    buffer: VecDeque<T>,
+}
+
 impl<T> Clone for Sender<T> {
     fn clone(&self) -> Self {
         let mut inner = self.shared.inner.lock().unwrap();
@@ -67,12 +73,6 @@ impl<T> Sender<T> {
         } // implicit -> drop(inner);
         self.shared.available.notify_one();
     }
-}
-
-#[derive(Debug)]
-pub struct Receiver<T> {
-    shared: Arc<Shared<T>>,
-    buffer: VecDeque<T>,
 }
 
 impl<T> Receiver<T> {

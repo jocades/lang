@@ -13,4 +13,4 @@ rust-project.json
 *.o
 public/
 .direnv/
-
+main
