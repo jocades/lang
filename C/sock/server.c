@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 #define BUF_SIZE 1024
-#define MAX_CONNECTIONS 2
+#define MAX_CONNECTIONS 1
 
 typedef struct {
   int sock;
@@ -28,6 +28,18 @@ typedef struct {
 } State;
 
 State state;
+
+void inc_conn_count() {
+  pthread_mutex_lock(&state.mutex);
+  state.conn_count++;
+  pthread_mutex_unlock(&state.mutex);
+}
+
+void dec_conn_count() {
+  pthread_mutex_lock(&state.mutex);
+  state.conn_count--;
+  pthread_mutex_unlock(&state.mutex);
+}
 
 void serve(Server* server, uint16_t port) {
   server->sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -65,6 +77,8 @@ void serve(Server* server, uint16_t port) {
 }
 
 void* process(void* arg) {
+  printf("Active threads: %d\n", state.conn_count);
+
   Client* client = (Client*)arg;
 
   while (true) {
@@ -85,6 +99,8 @@ void* process(void* arg) {
   close(client->sock);
   free(client);
 
+  dec_conn_count();
+
   return NULL;
 }
 
@@ -96,9 +112,20 @@ int main() {
   pthread_mutex_init(&state.mutex, NULL);
 
   while (true) {
+    pthread_mutex_lock(&state.mutex);
+    if (state.conn_count >= MAX_CONNECTIONS) {
+      pthread_mutex_unlock(&state.mutex);
+      printf("Max connections reached, waiting...\n");
+      sleep(2);
+      continue;
+    }
+    state.conn_count++;
+    pthread_mutex_unlock(&state.mutex);
+
     Client* client = malloc(sizeof(Client));
     if (client == NULL) {
       perror("failed to allocate client");
+      dec_conn_count();
       continue;
     }
 
@@ -109,6 +136,7 @@ int main() {
     if (client->sock < 0) {
       perror("failed to accept");
       free(client);
+      dec_conn_count();
       continue;
     }
 
@@ -122,10 +150,12 @@ int main() {
       perror("failed to create thread");
       close(client->sock);
       free(client);
+      dec_conn_count();
       continue;
     }
     pthread_detach(thread);
   }
 
   close(server.sock);
+  pthread_mutex_destroy(&state.mutex);
 }
