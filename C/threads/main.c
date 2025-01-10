@@ -13,9 +13,9 @@ typedef struct {
   pthread_mutex_t mutex;
 } State;
 
-void *task(void *arg) {
+void* task(void* arg) {
   pthread_t tid = pthread_self();
-  State *state = (State *)arg;
+  State* state = (State*)arg;
 
   printf("%p before increment: %d\n", tid, state->count);
   for (int i = 0; i < ITER; i++) {
@@ -26,9 +26,9 @@ void *task(void *arg) {
   return NULL;
 }
 
-void *safe_task(void *arg) {
+void* safe_task(void* arg) {
   pthread_t tid = pthread_self();
-  State *state = (State *)arg;
+  State* state = (State*)arg;
 
   pthread_mutex_lock(&state->mutex);
   printf("%p before increment: %d\n", tid, state->count);
@@ -69,7 +69,7 @@ int main() {
   pthread_mutex_destroy(&state.mutex);
 
   int expected = NUM_THREADS * ITER;
-  int code = state.count == expected ? 0 : 1;
+  int code = !(state.count == expected);
   printf("expected: %d got: %d\n", expected, state.count);
 
   return code;

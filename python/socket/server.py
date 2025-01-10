@@ -2,6 +2,7 @@
 
 import socket
 
+
 HOST = "127.0.0.1"
 PORT = 6969
 
@@ -21,8 +22,8 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 if not data:
                     break
                 print(f"Received {data.decode()!r} from {addr}")
-                if data == b'bye':
-                    conn.sendall(b'')  # close connection
+                if data == b"bye":
+                    conn.sendall(b"")  # close connection
                     conn.close()
                     break
                 conn.sendall(b"Echo: " + data)
