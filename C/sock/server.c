@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 #define BUF_SIZE 1024
-#define MAX_CONNECTIONS 1
+#define MAX_CONNECTIONS 2
 
 typedef struct {
   int sock;
@@ -49,31 +49,26 @@ void serve(Server* server, uint16_t port) {
   }
 
   int opt = 1;
-  int err =
-      setsockopt(server->sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-  if (err != 0) {
-    perror("failed to set SO_REUSEADDR");
+  if (setsockopt(server->sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) != 0) {
+    perror("failed to set socket options");
     exit(EXIT_FAILURE);
   }
 
   server->addr.sin_family = AF_INET;
   server->addr.sin_addr.s_addr = INADDR_ANY;
   server->addr.sin_port = htons(port);
-  socklen_t addrlen = sizeof(server->addr);
 
-  err = bind(server->sock, (struct sockaddr*)&server->addr, addrlen);
-  if (err < 0) {
+  if (bind(server->sock, (struct sockaddr*)&server->addr, sizeof(server->addr)) < 0) {
     perror("failed to bind socket");
     exit(EXIT_FAILURE);
   }
 
-  err = listen(server->sock, MAX_CONNECTIONS);
-  if (err < 0) {
+  if (listen(server->sock, MAX_CONNECTIONS) < 0) {
     perror("failed to listen");
     exit(EXIT_FAILURE);
   }
 
-  printf("Listening @ localhost:%d\n", port);
+  printf("Listening on port %d...\n", port);
 }
 
 void* process(void* arg) {
@@ -85,8 +80,7 @@ void* process(void* arg) {
     int n = read(client->sock, client->buf, BUF_SIZE);
     if (n <= 0) {
       printf(
-          "Client disconnected %s:%d\n", inet_ntoa(client->addr.sin_addr),
-          client->addr.sin_port
+          "Client disconnected %s:%d\n", inet_ntoa(client->addr.sin_addr), client->addr.sin_port
       );
       break;
     }
@@ -98,7 +92,6 @@ void* process(void* arg) {
 
   close(client->sock);
   free(client);
-
   dec_conn_count();
 
   return NULL;
@@ -108,42 +101,35 @@ int main() {
   Server server;
   serve(&server, 8000);
 
-  state.conn_count = 0;
   pthread_mutex_init(&state.mutex, NULL);
+  state.conn_count = 0;
 
   while (true) {
     pthread_mutex_lock(&state.mutex);
     if (state.conn_count >= MAX_CONNECTIONS) {
       pthread_mutex_unlock(&state.mutex);
-      printf("Max connections reached, waiting...\n");
-      sleep(2);
+      usleep(100000);
       continue;
     }
-    state.conn_count++;
     pthread_mutex_unlock(&state.mutex);
 
     Client* client = malloc(sizeof(Client));
-    if (client == NULL) {
+    if (!client) {
       perror("failed to allocate client");
-      dec_conn_count();
       continue;
     }
 
     socklen_t addrlen = sizeof(client->addr);
-    client->sock =
-        accept(server.sock, (struct sockaddr*)&client->addr, &addrlen);
+    client->sock = accept(server.sock, (struct sockaddr*)&client->addr, &addrlen);
 
     if (client->sock < 0) {
       perror("failed to accept");
       free(client);
-      dec_conn_count();
       continue;
     }
 
-    printf(
-        "New client connected %s:%d\n", inet_ntoa(client->addr.sin_addr),
-        client->addr.sin_port
-    );
+    inc_conn_count();
+    printf("Client connected %s:%d\n", inet_ntoa(client->addr.sin_addr), client->addr.sin_port);
 
     pthread_t thread;
     if (pthread_create(&thread, NULL, process, client) != 0) {
