@@ -98,7 +98,7 @@ void* process(void* arg) {
 }
 
 int main() {
-  Server server;
+  /* Server server;
   serve(&server, 8000);
 
   pthread_mutex_init(&state.mutex, NULL);
@@ -143,5 +143,5 @@ int main() {
   }
 
   close(server.sock);
-  pthread_mutex_destroy(&state.mutex);
+  pthread_mutex_destroy(&state.mutex); */
 }
