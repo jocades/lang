@@ -9,22 +9,27 @@
 #include "log.h"
 #include "server.h"
 
-void handle_connection(Client* client) {
+#define BUF_SIZE 1024
+
+void handle_connection(Connection* conn) {
+  char buf[BUF_SIZE];
+
   while (true) {
-    int n = read(client->sock, client->buf, BUF_SIZE);
+    int n = read(conn->sock, buf, BUF_SIZE);
     if (n <= 0) {
-      info("Client disconnected %d", client->addr.sin_port);
+      info("Client disconnected %d", conn->peer.sin_port);
       break;
     }
 
-    debug("Received: %s", client->buf);
-    send(client->sock, client->buf, n, 0);
-    memset(client->buf, 0, n);
+    debug("Received: %s", buf);
+    send(conn->sock, buf, n, 0);
+    memset(buf, 0, n);
   }
 }
 
 int main() {
   init_logger(LOG_TRACE);
+
   Server server = {.max_connections = 3};
   serve(&server, 8000, handle_connection);
 }

@@ -3,8 +3,6 @@
 
 #include <netinet/in.h>
 
-#define BUF_SIZE 1024
-
 typedef struct {
   int sock;
   struct sockaddr_in addr;
@@ -13,11 +11,10 @@ typedef struct {
 
 typedef struct {
   int sock;
-  struct sockaddr_in addr;
-  char buf[BUF_SIZE];
-} Client;
+  struct sockaddr_in peer;
+} Connection;
 
-typedef void (*ConnectionCallback)(Client* client);
+typedef void (*ConnectionCallback)(Connection* conn);
 
 void serve(Server* server, uint16_t port, ConnectionCallback callback);
 

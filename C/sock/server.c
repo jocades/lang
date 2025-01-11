@@ -17,6 +17,11 @@ typedef struct {
   pthread_mutex_t mutex;
 } State;
 
+void init_state(State* state) {
+  pthread_mutex_init(&state->mutex, NULL);
+  state->conn_count = 0;
+}
+
 void inc_conn_count(State* state) {
   pthread_mutex_lock(&state->mutex);
   state->conn_count++;
@@ -31,30 +36,28 @@ void dec_conn_count(State* state) {
 
 typedef struct {
   State* state;
-  Client* client;
+  Connection* conn;
   ConnectionCallback callback;
 } Env;
 
-Env* create_env(State* state, Client* client, ConnectionCallback callback) {
+Env* create_env(State* state, Connection* conn, ConnectionCallback callback) {
   Env* env = malloc(sizeof(Env));
   if (!env) {
     error("failed to allocate env");
     return NULL;
   }
   env->state = state;
-  env->client = client;
+  env->conn = conn;
   env->callback = callback;
   return env;
 }
 
 void* process(void* arg) {
   Env* env = (Env*)arg;
-  trace("threads=%d", env->state->conn_count);
+  env->callback(env->conn);
 
-  env->callback(env->client);
-
-  close(env->client->sock);
-  free(env->client);
+  close(env->conn->sock);
+  free(env->conn);
   dec_conn_count(env->state);
   free(env);
 
@@ -63,8 +66,7 @@ void* process(void* arg) {
 
 void run(Server* server, ConnectionCallback callback) {
   State state;
-  pthread_mutex_init(&state.mutex, NULL);
-  state.conn_count = 0;
+  init_state(&state);
 
   while (true) {
     pthread_mutex_lock(&state.mutex);
@@ -75,31 +77,31 @@ void run(Server* server, ConnectionCallback callback) {
     }
     pthread_mutex_unlock(&state.mutex);
 
-    Client* client = malloc(sizeof(Client));
-    if (!client) {
+    Connection* conn = malloc(sizeof(Connection));
+    if (!conn) {
       error("failed to allocate client");
       continue;
     }
 
-    socklen_t addrlen = sizeof(client->addr);
-    client->sock = accept(server->sock, (struct sockaddr*)&client->addr, &addrlen);
-    if (client->sock < 0) {
+    socklen_t addrlen = sizeof(conn->peer);
+    conn->sock = accept(server->sock, (struct sockaddr*)&conn->peer, &addrlen);
+    if (conn->sock < 0) {
       perror("failed to accept");
-      free(client);
+      free(conn);
       continue;
     }
 
     inc_conn_count(&state);
-    info("Client connected %d", client->addr.sin_port);
+    info("Client connected %d", conn->peer.sin_port);
 
-    Env* env = create_env(&state, client, callback);
+    Env* env = create_env(&state, conn, callback);
     if (!env) continue;
 
     pthread_t thread;
     if (pthread_create(&thread, NULL, process, env) != 0) {
       perror("failed to create thread");
-      close(client->sock);
-      free(client);
+      close(conn->sock);
+      free(conn);
       dec_conn_count(&state);
       continue;
     }
