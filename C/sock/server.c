@@ -35,6 +35,18 @@ typedef struct {
   ConnectionCallback callback;
 } Env;
 
+Env* create_env(State* state, Client* client, ConnectionCallback callback) {
+  Env* env = malloc(sizeof(Env));
+  if (!env) {
+    error("failed to allocate env");
+    return NULL;
+  }
+  env->state = state;
+  env->client = client;
+  env->callback = callback;
+  return env;
+}
+
 void* process(void* arg) {
   Env* env = (Env*)arg;
   trace("threads=%d", env->state->conn_count);
@@ -80,10 +92,9 @@ void run(Server* server, ConnectionCallback callback) {
     inc_conn_count(&state);
     info("Client connected %d", client->addr.sin_port);
 
-    Env* env = malloc(sizeof(Env));
-    env->state = &state;
-    env->client = client;
-    env->callback = callback;
+    Env* env = create_env(&state, client, callback);
+    if (!env) continue;
+
     pthread_t thread;
     if (pthread_create(&thread, NULL, process, env) != 0) {
       perror("failed to create thread");
