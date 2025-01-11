@@ -6,7 +6,7 @@
 #include <string.h>
 #include <time.h>
 
-static LogLevel current_log_level = -1;
+LogLevel current_log_level = LOG_INFO;
 
 const char* level_to_str(LogLevel level) {
   switch (level) {
@@ -53,7 +53,7 @@ void log_msg(LogLevel level, const char* fmt, ...) {
     case LOG_WARN: printf(ORANGE); break;
     case LOG_INFO: printf(GREEN); break;
   }
-  printf(" %s" RESET " ", level_to_str(level));
+  printf("%s" RESET " ", level_to_str(level));
 
   va_list args;
   va_start(args, fmt);
