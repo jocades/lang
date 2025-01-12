@@ -43,7 +43,7 @@ class String {
       _data = other._data;
       _size = other._size;
 
-      // Leave the moved-from object ina valid state
+      // Leave the moved-from object in a valid state
       other._data = nullptr;
       other._size = 0;
     }
