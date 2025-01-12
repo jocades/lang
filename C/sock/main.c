@@ -21,7 +21,7 @@ void handle_connection(Connection* conn) {
       break;
     }
 
-    debug("Received: %s", buf);
+    debug("Received from %d: %s", conn->peer.sin_port, buf);
     send(conn->sock, buf, n, 0);
     memset(buf, 0, n);
   }
