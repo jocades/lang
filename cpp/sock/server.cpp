@@ -72,7 +72,7 @@ class TcpListener {
       throw std::runtime_error("failed to set socket options");
     }
 
-    struct sockaddr_in addr = {
+    sockaddr_in addr = {
         .sin_family = AF_INET,
         .sin_addr = {.s_addr = INADDR_ANY},
         .sin_port = htons(port),
