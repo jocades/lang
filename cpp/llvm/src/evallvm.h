@@ -1,5 +1,5 @@
 /**
- * Eva to LLVM IR compiler
+ * Eva to LLVM IR compiler.
  */
 
 #ifndef evallvm_h
