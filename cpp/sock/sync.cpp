@@ -1,17 +1,20 @@
-#include <array>
+#include <fcntl.h>
+
+#include <cerrno>
 #include <iostream>
-#include <string>
+#include <system_error>
 
 using namespace std;
 
-void give(array<int, 2>& a) {}
-
 int main() {
-  array<char, 2> a = {};
-  auto [first, second] = a;
-  cout << first << ' ' << second << '\n';
+  int fd = open("abcd", O_RDONLY);
 
-  a.fill('a');
-  char b[4] = "abc";
-  cout << b << '\n';
+  if (fd == -1) {
+    cerr << "Error opening file: " << strerror(errno) << '\n';
+    // throw std::system_error(errno, std::system_category(), "failed to open file");
+  }
+
+  if (errno == ENOENT) {
+    std::cerr << "File not found\n";
+  }
 }

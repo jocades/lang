@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <cerrno>
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -50,6 +51,17 @@ class TcpStream {
   ssize_t write_all(span<const char> bytes) {
     size_t size = bytes.size();
     size_t n = 0;
+
+    while (n < size) {
+      ssize_t w = ::write(_sock, bytes.data() + n, size - n);
+      if (w < 0) {
+        syserr("failed to write to socket");
+        return n;
+      }
+      n += w;
+    }
+
+    return n;
   }
 
   inline int sock() {
@@ -93,7 +105,7 @@ class TcpListener {
 
   TcpStream accept() {
     int fd = ::accept(_sock, nullptr, nullptr);
-    if (fd < 0) throw std::runtime_error("failed to accept connection");
+    if (fd < 0) syserr("failed to accept connection");
     return TcpStream(fd);
   }
 
