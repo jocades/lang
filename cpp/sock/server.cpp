@@ -73,7 +73,7 @@ class TcpListener {
 
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) != 0) {
-      throw std::runtime_error("failed to set socket options");
+      syserr("failed to set socket options");
     }
 
     sockaddr_in addr = {
@@ -83,10 +83,10 @@ class TcpListener {
     };
 
     if (::bind(fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
-      throw std::runtime_error("failed to bind socket");
+      syserr("failed to bind socket");
     }
 
-    if (listen(fd, 5) < 0) throw std::runtime_error("failed to listen on socket");
+    if (listen(fd, 5) < 0) syserr("failed to listen on socket");
 
     return TcpListener(fd);
   }
