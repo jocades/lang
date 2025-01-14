@@ -6,10 +6,15 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <span>
 #include <stdexcept>
 #include <thread>
 
-using namespace std;  // remove in prod, only include what's needed, just testing here
+using namespace std;
+
+void syserr(const char* ctx) {
+  throw std::system_error(errno, std::system_category(), ctx);
+}
 
 class TcpStream {
  private:
@@ -18,11 +23,9 @@ class TcpStream {
  public:
   explicit TcpStream(int fd) : _sock(fd) {}
 
-  // Disable copy and assignment
   TcpStream(const TcpStream&) = delete;
   TcpStream operator=(const TcpStream&) = delete;
 
-  // Enable move semantics
   TcpStream(TcpStream&& other) noexcept : _sock(other._sock) {
     other._sock = -1;
   }
@@ -36,16 +39,17 @@ class TcpStream {
     return *this;
   }
 
-  int read(void* buf, size_t size) {
-    return ::read(_sock, buf, size);
+  ssize_t read(span<char> buf) {
+    return ::read(_sock, buf.data(), buf.size());
   }
 
-  int write(const void* buf, size_t size) {
-    return ::write(_sock, buf, size);
+  ssize_t write(span<const char> bytes) {
+    return ::write(_sock, bytes.data(), bytes.size());
   }
 
-  int write_all(const void* buf) {
-    return 1;
+  ssize_t write_all(span<const char> bytes) {
+    size_t size = bytes.size();
+    size_t n = 0;
   }
 
   inline int sock() {
@@ -65,7 +69,7 @@ class TcpListener {
  public:
   static TcpListener bind(uint16_t port) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0) throw std::runtime_error("failed to create socket");
+    if (fd < 0) syserr("failed to create socket");
 
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) != 0) {
@@ -74,8 +78,8 @@ class TcpListener {
 
     sockaddr_in addr = {
         .sin_family = AF_INET,
-        .sin_addr = {.s_addr = INADDR_ANY},
         .sin_port = htons(port),
+        .sin_addr = {.s_addr = INADDR_ANY},
     };
 
     if (::bind(fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
@@ -98,39 +102,6 @@ class TcpListener {
   }
 };
 
-typedef uint8_t u8;
-
-void process(TcpStream stream) {
-  u8 buf[1024];
-  while (true) {
-    int n = stream.read(buf, sizeof(buf));
-    if (n == 0) break;
-    if (n < 0) {
-      cerr << "failed to read from socket\n";
-      break;
-    }
-
-    string str(buf, buf + n);
-    cout << "received " << n << " bytes -> ";
-
-    string s = "hello\n";
-    ::write(stream.sock(), s.data(), s.size());
-
-    const char* cs = "hello\n";
-    size_t len = sizeof(s);
-    size_t sent = 0;
-
-    while (sent < len) {
-      const char* p = cs + sent;
-      sent += stream.write(p, len);
-    }
-
-    memset(buf, 0, n);
-  }
-
-  cout << "client disconnected\n'";
-}
-
 constexpr uint16_t PORT = 8000;
 
 namespace server {
@@ -142,47 +113,32 @@ void run() {
     try {
       auto stream = listener.accept();
       cout << "client connected\n";
-      // process(std::move(stream));
 
-      thread(process, std::move(stream)).detach();
+      std::thread([stream = std::move(stream)]() mutable {
+        array<char, 1024> buf;
 
-      /* std::thread([&stream]() {
-        const char* buf = "hello";
-        write(stream.sock(), buf, strlen(buf));
-        std::this_thread::sleep_for(std::chrono::seconds(5));
-      }).detach(); */
+        while (true) {
+          int n = stream.read(buf);
+          if (n == 0) break;
+          cout << "READ " << n << '\n';
 
+          string response = "echo -> " + string(buf.data(), n);
+          int o = stream.write(response);
+          cout << "WRITE " << o << '\n';
+        }
+
+        cout << "client disconneted\n";
+      }).detach();
+
+    } catch (const std::system_error& e) {
+      cerr << "System Error: " << e.what() << '\n';
     } catch (const std::exception& e) {
-      cout << "Error: " << e.what() << '\n';
+      cerr << "Error: " << e.what() << '\n';
     }
   }
 }
 }  // namespace server
 
-int wwrite(const void* buf) {
-  return 2;
-}
-
 int main() {
   server::run();
-
-  char s[] = "hello\n";
-  size_t len = strlen(s);
-  cout << "len=" << len << " size=" << sizeof(s) << '\n';
-
-  cout << *(s + 4) << '=' << (int)*(s + 4) << '\n';
-
-  string x(s + 2, len);
-  cout << x;
-
-  int n = 0;
-  while (n < len) {
-    cout << n << '\n';
-    n += wwrite(s + n);
-  }
-
-  for (int i = 0; i < n; i++) {
-    cout << (int)s[i] << ' ';
-  }
-  cout << '\n';
 }

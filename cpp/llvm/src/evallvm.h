@@ -53,6 +53,10 @@ class EvaLLVM {
     module->print(outLL, nullptr);
   }
 
+  void compile() {
+    // 1. Create main function
+  }
+
   /**
    * Global LLVM context.
    * It owns and manages the core "global" data fo LLVM'S core infrastrucure,
