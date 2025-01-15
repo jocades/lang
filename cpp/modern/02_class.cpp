@@ -50,6 +50,7 @@ class String {
     return *this;
   }
 
+  // Copy constructor
   String(const String& other) {
     _size = other._size;
     _data = new char[_size + 1];

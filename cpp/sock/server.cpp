@@ -8,7 +8,6 @@
 #include <iostream>
 #include <memory>
 #include <span>
-#include <stdexcept>
 #include <thread>
 
 using namespace std;

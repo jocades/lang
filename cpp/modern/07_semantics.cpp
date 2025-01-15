@@ -130,7 +130,63 @@ void new_type() {
   wrapped->display();
 }
 
+class W {
+ public:
+  int v;
+
+  W() {
+    cout << "W Constructor\n";
+  }
+
+  W(W& other) {
+    v = other.v;
+    cout << "W Copy Constructor\n";
+  };
+
+  W(W&& other) noexcept {
+    other.v = -1;
+    cout << "W Move Constructor\n";
+  }
+};
+
+class X {
+ public:
+  W _w;
+
+  X(W& w) : _w(std::move(w)) {
+    cout << "X Constructor\n";
+  }
+
+  X(W&& w) : _w(std::move(w)) {
+    cout << "X Move Constructor\n";
+  }
+};
+
+W create() {
+  W w;
+  w.v = 10;
+  return w;  // return value optimization (allocated where this function is called)
+}
+
+void what() {
+  auto w1 = create();
+  cout << w1.v << '\n';
+
+  W w2 = w1;
+  cout << w2.v << '\n';
+
+  W w3 = std::move(w2);
+  cout << w3.v << '\n';
+  cout << w2.v << '\n';
+
+  W& w4 = w3;
+  w4.v = 20;
+  cout << w4.v << '\n';
+  cout << w3.v << '\n';
+}
+
 int main() {
   semantics();
   new_type();
+  what();
 }
