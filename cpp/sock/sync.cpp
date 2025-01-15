@@ -14,13 +14,9 @@ template <typename T>
 class Shared {
  public:
   mutex mtx;
-  size_t senders;
+  atomic<size_t> senders;
   deque<T> queue;
   condition_variable avail;
-
-  Shared() : senders(1) {
-    cout << "Shared Constructor\n";
-  }
 
   void debug() const {
     cout << "Shared(senders=" << senders << ", queue=" << queue.size() << ")\n";
@@ -36,6 +32,10 @@ class Sender {
   Sender(shared_ptr<Shared<T>> shared) : shared(shared) {
     cout << "Sender Constructor\n";
   };
+
+  Sender(const Sender& other) : shared(other.shared) {
+    shared->senders++;  // fetch_add(1, memory_order_acq_rel)
+  }
 
   void send(const T&& data) {
     shared->mtx.lock();
@@ -59,13 +59,9 @@ class Sender {
   // Sender clone() {}
 
   ~Sender() {
-    cout << "Sender Destructor\n";
-    shared->mtx.lock();
+    cout << "Drop Sender\n";
     shared->senders--;
-    cout << "Drop Shared\n";
-    debug();
     bool last = shared->senders == 0;
-    shared->mtx.unlock();
     // Make sure to wake up the receiver since it may be waiting but there are
     // no active senders left.
     if (last) shared->avail.notify_one();
@@ -144,10 +140,13 @@ class W {
 };
 
 void test() {
-  auto shared = make_shared<Shared<W>>();
-  auto tx = Sender(shared);
+  auto [tx, rx] = channel<W>();
+
+  cout << "----------\n";
+
+  // auto shared = make_shared<Shared<W>>();
+  /* auto tx = Sender(shared);
   auto rx = Receiver(shared);
-  // auto [tx, rx] = channel<W>();
 
   thread actor = thread([&rx]() {
     cout << "Actor waiting for msg...\n";
@@ -160,13 +159,13 @@ void test() {
   });
 
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  tx.send(W(1));
+  tx.send(W(1)); */
 
   // for (int i = 0; i < 5; i++) {
   //   tx.send(W(i));
   // }
 
-  actor.join();
+  // actor.join();
 
   /* array<thread, 9> tasks;
   for (int i = 0; i < tasks.size(); i++) {
