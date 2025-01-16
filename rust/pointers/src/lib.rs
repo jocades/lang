@@ -1,6 +1,7 @@
 #![allow(unused, private_interfaces)]
 
 mod cell;
+mod dyna;
 mod raw;
 mod rc;
 mod refcell;
