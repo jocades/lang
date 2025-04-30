@@ -1,6 +1,10 @@
 llvm=/opt/homebrew/opt/llvm/bin
 
-$llvm/clang++ -o evallvm $($llvm/llvm-config --cxxflags --ldflags --system-libs --libs core) ./evallvm.cpp
+cmd="$llvm/clang++ -o evallvm $($llvm/llvm-config --cxxflags --ldflags --system-libs --libs core) ./evallvm.cpp"
+
+echo "BUILD: $cmd"
+
+$cmd
 
 ./evallvm
 

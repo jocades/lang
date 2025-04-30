@@ -116,7 +116,12 @@ class Vec {
 };
 
 int main() {
-  Vec<int> v1;
-  for (int i = 0; i < 5; i++) v1.push(i);
+  Vec<char> v1;
+  for (int i = 0; i < 5; i++) v1.push(97 + i);
   cout << v1 << '\n';
+  cout << v1[3] << '\n';
+
+  auto v2 = std::move(v1);
+  assert(v1.is_empty() && v1.cap() == 0);
+  assert(v2.len() == 5);
 }
