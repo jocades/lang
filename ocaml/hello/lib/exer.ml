@@ -61,4 +61,6 @@ let rec insert_at x n = function
   | h :: t as l -> if n = 0 then x :: l else h :: insert_at x (n - 1) t
 ;;
 
-let rec range lo hi = if lo > hi then [] else lo :: range (lo + 1) hi
+(* let rec range lo hi = if lo > hi then [] else lo :: range (lo + 1) hi *)
+
+let rec range ?(step = 1) lo hi = if lo > hi then [] else lo :: range (lo + step) hi ~step

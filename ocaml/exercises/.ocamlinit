@@ -1,0 +1,2 @@
+#mod_use "lib/ex.ml";;
+open Ex;;

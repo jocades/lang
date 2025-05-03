@@ -1,0 +1,5 @@
+profile = janestreet
+
+break-separators = after
+break-collection-expressions = fit-or-vertical
+field-space = loose

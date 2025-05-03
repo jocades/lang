@@ -8,9 +8,9 @@ let what f x =
 ;;
 
 let () = what (fun x -> x * x) 2 |> string_of_int |> print_endline
-let labeled ~name = print_endline name
+let say_hi ~name = print_endline ("Hi " ^ name ^ "!")
 
 let () =
-  let name = "Jordi" in
-  labeled ~name
+  say_hi ~name:"Bob";
+  say_hi ~name:"bob"
 ;;
