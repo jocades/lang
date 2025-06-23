@@ -88,9 +88,9 @@ class TcpListener {
     }
 
     sockaddr_in addr = {
-        .sin_family = AF_INET,
-        .sin_port = htons(port),
-        .sin_addr = {.s_addr = INADDR_ANY},
+      .sin_family = AF_INET,
+      .sin_port = htons(port),
+      .sin_addr = {.s_addr = INADDR_ANY},
     };
 
     if (::bind(fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
@@ -103,8 +103,17 @@ class TcpListener {
   }
 
   TcpStream accept() {
-    int fd = ::accept(_sock, nullptr, nullptr);
+    sockaddr_in addr;
+    socklen_t len = sizeof(addr);
+    int fd = ::accept(_sock, (sockaddr*)&addr, &len);
+
+    char buf[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &addr, buf, sizeof(buf));
+
+    printf("ADDR: %s", buf);
+
     if (fd < 0) syserr("failed to accept connection");
+    cout << addr.sin_addr.s_addr << '\n';
     return TcpStream(fd);
   }
 
@@ -116,6 +125,22 @@ class TcpListener {
 constexpr uint16_t PORT = 8000;
 
 namespace server {
+void process(TcpStream stream) {
+  array<char, 1024> buf;
+
+  while (true) {
+    int n = stream.read(buf);
+    if (n == 0) break;
+    cout << "READ " << n << '\n';
+
+    string response = "echo -> " + string(buf.data(), n);
+    int o = stream.write_all(response);
+    cout << "WRITE " << o << '\n';
+  }
+
+  cout << "client disconnected\n";
+}
+
 void run() {
   auto listener = TcpListener::bind(PORT);
   cout << "Listening on port " << PORT << "...\n";
@@ -125,26 +150,17 @@ void run() {
       auto stream = listener.accept();
       cout << "client connected\n";
 
-      std::thread([stream = std::move(stream)]() mutable {
-        array<char, 1024> buf;
+      std::thread thread(process, std::move(stream));
+      thread.detach();
 
-        while (true) {
-          int n = stream.read(buf);
-          if (n == 0) break;
-          cout << "READ " << n << '\n';
-
-          string response = "echo -> " + string(buf.data(), n);
-          int o = stream.write(response);
-          cout << "WRITE " << o << '\n';
-        }
-
-        cout << "client disconneted\n";
-      }).detach();
+      // std::thread([stream = std::move(stream)]() mutable {}).detach();
 
     } catch (const std::system_error& e) {
       cerr << "System Error: " << e.what() << '\n';
+      exit(1);
     } catch (const std::exception& e) {
       cerr << "Error: " << e.what() << '\n';
+      exit(1);
     }
   }
 }

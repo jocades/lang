@@ -96,6 +96,7 @@ class Receiver {
         return data;
       }
       shared->avail.wait(guard);
+      cout << "waiting for avail" << endl;
     }
   }
 
@@ -144,22 +145,20 @@ void test() {
 
   cout << "----------\n";
 
-  // auto shared = make_shared<Shared<W>>();
-  /* auto tx = Sender(shared);
-  auto rx = Receiver(shared);
-
-  thread actor = thread([&rx]() {
+  thread([&rx]() mutable {
     cout << "Actor waiting for msg...\n";
     auto msg = rx.recv();
     if (msg) {
-      cout << "Actor received " << msg->v << '\n';
+      cout << "Actor received " << msg->v << endl;
     } else {
-      cout << "No senders! Shutting down...\n";
+      cout << "No senders! Shutting down..." << endl;
     }
-  });
+  }).detach();
 
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  tx.send(W(1)); */
+  tx.send(W(1));
+
+  std::this_thread::sleep_for(std::chrono::seconds(2));
 
   // for (int i = 0; i < 5; i++) {
   //   tx.send(W(i));
