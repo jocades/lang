@@ -7,21 +7,6 @@
 
 using std::cout;
 
-struct Frame {
-  uint8_t id;
-  uint32_t size;
-  std::vector<uint8_t> body;
-
-  friend std::ostream& operator<<(std::ostream& s, const Frame& f) {
-    s << "{\n"
-      << "  id: " << (int)f.id << ",\n"
-      << "  size: " << f.size << ",\n"
-      << "  body: " << std::string(f.body.begin(), f.body.end()) << ",\n"
-      << '}';
-    return s;
-  }
-};
-
 class BinBuffer {
  private:
   std::vector<char> buf;
@@ -72,20 +57,8 @@ class BinBuffer {
     return value;
   }
 
-  void write_frame(const Frame& frame) {
-    put_u8(frame.id);
-    put_u32(frame.size);
-    buf.insert(buf.end(), frame.body.begin(), frame.body.end());
-  };
-
-  std::optional<Frame> read_frame() {
+  std::optional<std::string> read_frame() {
     size_t prev_offset = offset;
-
-    std::optional<uint8_t> idopt = get_u8();
-    if (!idopt) {
-      offset = prev_offset;
-      return std::nullopt;
-    }
 
     auto lenopt = get_u32();
     if (!lenopt) {
@@ -94,40 +67,32 @@ class BinBuffer {
     }
 
     uint32_t len = lenopt.value();
-    if (offset + len > buf.size()) {
+    auto stropt = get_str(len);
+    if (!stropt) {
+      offset = prev_offset;
       return std::nullopt;
     }
 
-    Frame frame{
-      .id = *idopt,
-      .size = len,
-      .body = std::vector<uint8_t>(buf.begin() + offset, buf.begin() + offset + len)
-    };
-    offset += len;
     compact();
-
-    return frame;
+    return stropt;
   }
 };
 
 void test_frame() {
   BinBuffer buf;
 
-  std::string msg = "hello";
-  Frame frame{
-    .id = 1,
-    .size = static_cast<uint32_t>(msg.size()),
-    .body = std::vector<uint8_t>(msg.begin(), msg.end()),
-  };
-
-  cout << frame << '\n';
-
-  buf.write_frame(frame);
+  buf.put_str("hello");
+  buf.put_str("world");
 
   auto m1 = buf.read_frame();
   assert(m1.has_value());
 
   cout << "Frame 1: " << *m1 << '\n';
+
+  auto m2 = buf.read_frame();
+  assert(m2.has_value());
+
+  cout << "Frame 2: " << *m2 << '\n';
 }
 
 void test_partial() {
@@ -151,10 +116,10 @@ void test_partial() {
   auto full = buf.read_frame();
   assert(full.has_value());
 
-  // cout << *full << '\n';
+  cout << *full << '\n';
 }
 
 int main() {
   test_frame();
-  // test_partial();
+  test_partial();
 }

@@ -253,6 +253,8 @@ mod tests {
 
         // The power of deref:
         let len = coerce(&v);
+
+        let y = &v[..];
     }
 
     fn sized(n: u32) -> Vec<u32> {
